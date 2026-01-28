@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+
 @dataclass
 class TreeItem:
     """树形结构项，用于表示文件系统中的文件或文件夹节点"""
