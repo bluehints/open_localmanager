@@ -20,7 +20,7 @@ Open LocalManager 是一款功能强大的本地文件管理器，旨在提供�
 - **GUI框架**：PySide6
 - **文件操作**：os、shutil、pathlib
 - **图片处理**：Pillow
-- **测试框架**：unittest
+- **测试框架**：pytest、pytest-qt
 - **代码质量**：black、flake8、mypy
 
 ## 项目结构
@@ -42,11 +42,17 @@ open_localmanager/
 │   ├── widgets/            # UI组件
 │   └── utils/              # 工具函数
 ├── tests/                   # 测试目录
-│   ├── test_config_module.py
-│   ├── test_utils_module.py
-│   ├── test_interfaces.py
-│   ├── test_integration.py
-│   └── run_all_tests.py
+│   ├── test_controllers/
+│   ├── test_models/
+│   ├── test_services/
+│   └── test_widgets/
+├── resources/               # 资源目录
+│   ├── icons/              # 图标
+│   ├── images/             # 图片
+│   └── styles/             # 样式
+├── config/                  # 配置目录
+│   ├── default_config.json # 默认配置
+│   └── config.py           # 配置模块
 ├── requirements.txt         # 依赖列表
 ├── README.md               # 项目说明
 └── .gitignore             # Git忽略文件
@@ -64,7 +70,7 @@ open_localmanager/
 
 1. **克隆仓库**
    ```bash
-   git clone https://github.com/bluehints/open_localmanager.git
+   git clone https://github.com/yourusername/open_localmanager.git
    cd open_localmanager
    ```
 
@@ -89,15 +95,9 @@ open_localmanager/
    python src/main.py
    ```
 
-### 运行测试
+### 开发环境配置
 
-```bash
-# 运行所有测试
-python tests/run_all_tests.py
-
-# 运行特定测试文件
-python -m unittest tests.test_config_module
-```
+详细的开发环境配置请参考 [开发环境配置文档](docs/05_开发环境配置.md)。
 
 ## 功能说明
 
@@ -122,44 +122,6 @@ python -m unittest tests.test_config_module
 - 支持常见文件格式（文本、图片等）
 - 提供预览内容的缩放功能
 - 显示文件基本信息
-
-## 测试结果
-
-### 测试覆盖率
-- **总测试数**: 129
-- **通过**: 129
-- **失败**: 0
-- **错误**: 0
-- **通过率**: 100.00%
-
-### 测试范围
-- 配置模块测试
-- 路径辅助工具测试
-- 日期时间辅助工具测试
-- 字符串辅助工具测试
-- 文件排序工具测试
-- 文件过滤工具测试
-- 预览缩放工具测试
-- 树项模型测试
-- 文件服务接口测试
-- 文件夹服务接口测试
-- 树形结构服务接口测试
-- 预览服务接口测试
-- 配置管理器接口测试
-- 日志管理器接口测试
-- 剪贴板管理器接口测试
-- 图标提供器接口测试
-- 文件系统辅助工具接口测试
-- 树形结构加载器接口测试
-- 命令接口测试
-- 信号接口测试
-- 验证器接口测试
-- 侧边栏与文件管理区同步测试
-- 文件操作集成测试
-- 预览集成测试
-- 服务层集成测试
-- 控制器集成测试
-- 模型集成测试
 
 ## 文档
 
@@ -187,10 +149,13 @@ python -m unittest tests.test_config_module
 
 ```bash
 # 运行所有测试
-python tests/run_all_tests.py
+pytest
 
 # 运行特定测试文件
-python -m unittest tests.test_config_module
+pytest tests/test_file_service.py
+
+# 生成覆盖率报告
+pytest --cov=src --cov-report=html
 ```
 
 ### 代码格式化
@@ -239,7 +204,7 @@ mypy src/
 
 ## 版本历史
 
-### v1.0.0 (2026-01-29)
+### v1.0.0 (开发中)
 
 - 初始版本发布
 - 实现基本的三段式布局
@@ -247,8 +212,6 @@ mypy src/
 - 实现文件管理区功能
 - 实现文件预览功能
 - 实现基本的文件操作
-- 完成所有单元测试、接口测试和集成测试
-- 测试通过率达到100%
 
 ## 许可证
 
@@ -256,8 +219,9 @@ mypy src/
 
 ## 联系方式
 
-- 项目主页：https://github.com/bluehints/open_localmanager
-- 问题反馈：https://github.com/bluehints/open_localmanager/issues
+- 项目主页：https://github.com/yourusername/open_localmanager
+- 问题反馈：https://github.com/yourusername/open_localmanager/issues
+- 邮箱：your.email@example.com
 
 ## 致谢
 
@@ -276,9 +240,25 @@ A: 在应用菜单中选择"设置" -> "项目路径"，然后选择新的项目
 
 A: 目前支持文本文件（txt、md、csv、json、xml、html、css、js、py、java、c、cpp等）和图片文件（jpg、jpeg、png、gif、bmp、svg、webp等）。
 
+### Q: 如何自定义主题？
+
+A: 在 `resources/styles/` 目录下创建新的主题文件，然后在应用设置中选择该主题。
+
 ### Q: 应用崩溃了怎么办？
 
 A: 请查看日志文件（位于用户目录下的 `.localmanager/logs/` 目录），然后提交问题报告。
+
+## 更新日志
+
+### [1.0.0] - 2026-01-29
+
+#### 新增
+- 初始版本发布
+- 三段式布局实现
+- 结构树侧边栏功能
+- 文件管理区功能
+- 文件预览功能
+- 基本文件操作功能
 
 ## 路线图
 
