@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 from PySide6.QtWidgets import QWidget, QTextEdit, QVBoxLayout
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QTextOption
 from .base_previewer import BasePreviewer
 
 
@@ -35,6 +35,7 @@ class TextPreviewer(BasePreviewer):
         self.text_edit = QTextEdit(self.widget)
         self.text_edit.setReadOnly(True)
         self.text_edit.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        self.text_edit.setWordWrapMode(QTextOption.WrapMode.NoWrap)
 
         font = QFont("Consolas", 10)
         self.text_edit.setFont(font)
