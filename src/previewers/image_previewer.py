@@ -100,7 +100,6 @@ class ImagePreviewer(BasePreviewer):
         if pixmap.width() <= max_width and pixmap.height() <= max_height:
             return pixmap
 
-
         return pixmap.scaled(
             max_width,
             max_height,
