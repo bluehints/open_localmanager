@@ -79,6 +79,7 @@ class MainWindow(QMainWindow):
         self.setMenuBar(self.menu_bar)
         
         self.menu_bar.signals.tools_set_path.connect(self._on_set_path)
+        self.menu_bar.signals.view_show_hidden.connect(self._on_show_hidden)
 
     def _setup_tool_bar(self):
         """设置工具栏"""
@@ -126,39 +127,190 @@ class MainWindow(QMainWindow):
 
     def _on_new_folder(self):
         """处理新建文件夹事件"""
-        pass
+        from PySide6.QtWidgets import QInputDialog
+        from services.folder_service import FolderService
+        
+        current_path = self.status_bar.get_path()
+        if not current_path:
+            return
+        
+        folder_name, ok = QInputDialog.getText(self, "新建文件夹", "请输入文件夹名称:")
+        if ok and folder_name:
+            folder_service = FolderService()
+            try:
+                folder_service.create_folder(current_path, folder_name)
+                self._refresh_current_path()
+                self.status_bar.set_operation(f"文件夹 '{folder_name}' 创建成功")
+            except Exception as e:
+                self.status_bar.set_operation(f"创建文件夹失败: {str(e)}")
 
     def _on_copy(self):
         """处理复制事件"""
-        pass
+        from utils.clipboard_manager import ClipboardManager
+        
+        current_path = self.status_bar.get_path()
+        if not current_path:
+            return
+        
+        selection = self.status_bar.get_selection()
+        if not selection:
+            return
+        
+        file_path = current_path + "\\" + selection if current_path[-1] != "\\" else current_path + selection
+        
+        clipboard_manager = ClipboardManager()
+        clipboard_manager.copy_file(file_path)
+        self.status_bar.set_operation(f"已复制: {selection}")
 
     def _on_paste(self):
         """处理粘贴事件"""
-        pass
+        from utils.clipboard_manager import ClipboardManager
+        from services.file_service import FileService
+        
+        current_path = self.status_bar.get_path()
+        if not current_path:
+            return
+        
+        clipboard_manager = ClipboardManager()
+        clipboard_data = clipboard_manager.get_clipboard_data()
+        
+        if clipboard_data and clipboard_data['action'] == 'copy':
+            file_service = FileService()
+            try:
+                file_service.copy_file(clipboard_data['path'], current_path)
+                self._refresh_current_path()
+                self.status_bar.set_operation("粘贴成功")
+            except Exception as e:
+                self.status_bar.set_operation(f"粘贴失败: {str(e)}")
 
     def _on_cut(self):
         """处理剪切事件"""
-        pass
+        from utils.clipboard_manager import ClipboardManager
+        
+        current_path = self.status_bar.get_path()
+        if not current_path:
+            return
+        
+        selection = self.status_bar.get_selection()
+        if not selection:
+            return
+        
+        file_path = current_path + "\\" + selection if current_path[-1] != "\\" else current_path + selection
+        
+        clipboard_manager = ClipboardManager()
+        clipboard_manager.cut_file(file_path)
+        self.status_bar.set_operation(f"已剪切: {selection}")
 
     def _on_delete(self):
         """处理删除事件"""
-        pass
+        from PySide6.QtWidgets import QMessageBox
+        from services.file_service import FileService
+        from services.folder_service import FolderService
+        from pathlib import Path
+        
+        current_path = self.status_bar.get_path()
+        if not current_path:
+            return
+        
+        selection = self.status_bar.get_selection()
+        if not selection:
+            return
+        
+        file_path = current_path + "\\" + selection if current_path[-1] != "\\" else current_path + selection
+        
+        reply = QMessageBox.question(
+            self, 
+            "确认删除", 
+            f"确定要删除 '{selection}' 吗？",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                if Path(file_path).is_dir():
+                    folder_service = FolderService()
+                    folder_service.delete_folder(file_path)
+                else:
+                    file_service = FileService()
+                    file_service.delete_file(file_path)
+                
+                self._refresh_current_path()
+                self.status_bar.set_operation(f"'{selection}' 已删除")
+            except Exception as e:
+                self.status_bar.set_operation(f"删除失败: {str(e)}")
 
     def _on_rename(self):
         """处理重命名事件"""
-        pass
+        from PySide6.QtWidgets import QInputDialog
+        from services.file_service import FileService
+        from services.folder_service import FolderService
+        from pathlib import Path
+        
+        current_path = self.status_bar.get_path()
+        if not current_path:
+            return
+        
+        selection = self.status_bar.get_selection()
+        if not selection:
+            return
+        
+        file_path = current_path + "\\" + selection if current_path[-1] != "\\" else current_path + selection
+        
+        new_name, ok = QInputDialog.getText(self, "重命名", "请输入新名称:", text=selection)
+        if ok and new_name and new_name != selection:
+            try:
+                if Path(file_path).is_dir():
+                    folder_service = FolderService()
+                    folder_service.rename_folder(file_path, new_name)
+                else:
+                    file_service = FileService()
+                    file_service.rename_file(file_path, new_name)
+                
+                self._refresh_current_path()
+                self.status_bar.set_operation(f"重命名成功: {selection} -> {new_name}")
+            except Exception as e:
+                self.status_bar.set_operation(f"重命名失败: {str(e)}")
 
     def _on_refresh(self):
         """处理刷新事件"""
-        pass
+        self._refresh_current_path()
+        self.status_bar.set_operation("已刷新")
 
     def _on_up(self):
         """处理上一级事件"""
-        pass
+        from pathlib import Path
+        
+        current_path = self.status_bar.get_path()
+        if not current_path:
+            return
+        
+        parent_path = str(Path(current_path).parent)
+        if parent_path != current_path:
+            self.sidebar_widget.load_tree(parent_path)
+            self.status_bar.set_path(parent_path)
+    
+    def _refresh_current_path(self):
+        """刷新当前路径"""
+        current_path = self.status_bar.get_path()
+        if current_path:
+            from services.file_service import FileService
+            file_service = FileService()
+            files = file_service.list_files(current_path)
+            self.file_manager_widget.load_files(files)
 
     def _on_sidebar_selected(self, path: str):
         """处理侧边栏选择事件"""
         self.status_bar.set_path(path)
+
+    def _on_show_hidden(self, show: bool):
+        """
+        处理显示隐藏文件事件
+
+        Args:
+            show: 是否显示隐藏文件
+        """
+        self.file_manager_widget.set_show_hidden(show)
+        self.status_bar.set_operation(f"{'显示' if show else '隐藏'}隐藏文件")
 
     def _on_file_selected(self, file_path: str):
         """处理文件选择事件"""
@@ -178,7 +330,7 @@ class MainWindow(QMainWindow):
             if current_path:
                 results = self.search_service.search_files(current_path, text)
                 self.file_manager_widget.load_files(results)
-                self.status_bar.set_message(f"找到 {len(results)} 个结果")
+                self.status_bar.set_operation(f"找到 {len(results)} 个结果")
 
     def _on_search_cleared(self):
         """处理搜索清除事件"""
@@ -188,7 +340,7 @@ class MainWindow(QMainWindow):
             file_service = FileService()
             files = file_service.list_files(current_path)
             self.file_manager_widget.load_files(files)
-            self.status_bar.set_message("")
+            self.status_bar.set_operation("")
 
     def _on_filter_applied(self, config: dict):
         """
@@ -211,7 +363,7 @@ class MainWindow(QMainWindow):
             self.file_manager_widget.proxy_model.set_filter_folders(False)
             self.file_manager_widget.proxy_model.set_filter_files(False)
 
-        self.status_bar.set_message("过滤已应用")
+        self.status_bar.set_operation("过滤已应用")
 
     def show_search_bar(self):
         """显示搜索栏"""
