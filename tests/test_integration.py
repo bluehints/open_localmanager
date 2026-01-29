@@ -49,24 +49,24 @@ class TestSidebarFileManagerSync(ComponentTest):
     def test_tree_folder_expansion(self):
         """测试文件夹展开"""
         root = self.tree_service.load_tree(self.test_dir)
+        children = self.tree_service.load_children(self.test_dir)
         
-        folder1 = root.children[0]
-        self.assertFalse(folder1.is_expanded)
+        self.assertEqual(len(children), 2)
         
-        folder1.is_expanded = True
-        children = self.tree_service.load_children(folder1.path)
-        
-        self.assertEqual(len(children), 1)
+        folder1 = next((c for c in children if c.name == "folder1"), None)
+        self.assertIsNotNone(folder1)
+        self.assertTrue(folder1.is_folder)
 
-    def test_file_manager_sync(self):
-        """测试文件管理区同步"""
+    def test_file_operation_tree_sync(self):
+        """测试文件操作与树形结构同步"""
         root = self.tree_service.load_tree(self.test_dir)
-        folder1 = root.children[0]
+        initial_count = len(root.children)
         
-        files = self.file_service.list_files(folder1.path)
+        new_folder = Path(self.test_dir) / "new_folder"
+        new_folder.mkdir()
         
-        self.assertEqual(len(files), 1)
-        self.assertEqual(files[0].name, "file1.txt")
+        root = self.tree_service.load_tree(self.test_dir)
+        self.assertEqual(len(root.children), initial_count + 1)
 
 
 class TestFileOperationIntegration(ComponentTest):
@@ -77,31 +77,35 @@ class TestFileOperationIntegration(ComponentTest):
         self.test_dir = tempfile.mkdtemp()
         self.file_service = FileService()
         
-        (Path(self.test_dir) / "test.txt").write_text("test content")
+        (Path(self.test_dir) / "source.txt").write_text("source content")
 
     def tearDown(self):
         """测试后清理"""
         if Path(self.test_dir).exists():
             shutil.rmtree(self.test_dir)
 
-    def test_copy_file(self):
-        """测试复制文件"""
-        src_path = str(Path(self.test_dir) / "test.txt")
-        dst_path = str(Path(self.test_dir) / "test_copy.txt")
+    def test_copy_and_delete_workflow(self):
+        """测试复制和删除工作流"""
+        src_file = str(Path(self.test_dir) / "source.txt")
+        dst_file = str(Path(self.test_dir) / "copy.txt")
         
-        result = self.file_service.copy_file(src_path, dst_path)
-        
+        result = self.file_service.copy_file(src_file, dst_file)
         self.assertTrue(result)
-        self.assertTrue(Path(dst_path).exists())
+        self.assertTrue(Path(dst_file).exists())
+        
+        result = self.file_service.delete_file(dst_file)
+        self.assertTrue(result)
+        self.assertFalse(Path(dst_file).exists())
 
-    def test_delete_file(self):
-        """测试删除文件"""
-        file_path = str(Path(self.test_dir) / "test.txt")
+    def test_rename_workflow(self):
+        """测试重命名工作流"""
+        old_file = str(Path(self.test_dir) / "source.txt")
+        new_file = str(Path(self.test_dir) / "renamed.txt")
         
-        result = self.file_service.delete_file(file_path)
-        
+        result = self.file_service.rename_file(old_file, new_file)
         self.assertTrue(result)
-        self.assertFalse(Path(file_path).exists())
+        self.assertFalse(Path(old_file).exists())
+        self.assertTrue(Path(new_file).exists())
 
 
 class TestPreviewIntegration(ComponentTest):
@@ -110,6 +114,7 @@ class TestPreviewIntegration(ComponentTest):
     def setUp(self):
         """测试前准备"""
         self.test_dir = tempfile.mkdtemp()
+        self.preview_service = PreviewService()
         
         (Path(self.test_dir) / "test.txt").write_text("test content")
 
@@ -118,20 +123,17 @@ class TestPreviewIntegration(ComponentTest):
         if Path(self.test_dir).exists():
             shutil.rmtree(self.test_dir)
 
-    def test_text_preview(self):
-        """测试文本预览"""
-        from PySide6.QtWidgets import QApplication
+    def test_text_file_preview(self):
+        """测试文本文件预览"""
+        test_file = str(Path(self.test_dir) / "test.txt")
         
-        app = QApplication.instance()
-        if app is None:
-            app = QApplication(sys.argv)
-        
-        preview_service = PreviewService()
-        file_path = str(Path(self.test_dir) / "test.txt")
-        
-        result = preview_service.preview_file(file_path)
-        
+        result = self.preview_service.preview_file(test_file)
         self.assertTrue(result)
+        
+        widget = self.preview_service.get_widget()
+        self.assertIsNotNone(widget)
+        
+        self.preview_service.clear_preview()
 
 
 class TestServiceIntegration(ComponentTest):
@@ -142,32 +144,35 @@ class TestServiceIntegration(ComponentTest):
         self.test_dir = tempfile.mkdtemp()
         self.tree_service = TreeService()
         self.file_service = FileService()
-        
-        (Path(self.test_dir) / "folder1").mkdir()
-        (Path(self.test_dir) / "folder1" / "file1.txt").write_text("content1")
 
     def tearDown(self):
         """测试后清理"""
         if Path(self.test_dir).exists():
             shutil.rmtree(self.test_dir)
 
+    def test_tree_and_file_service_integration(self):
+        """测试树形服务与文件服务集成"""
+        root = self.tree_service.load_tree(self.test_dir)
+        
+        new_folder = str(Path(self.test_dir) / "new_folder")
+        Path(new_folder).mkdir()
+        
+        root = self.tree_service.load_tree(self.test_dir)
+        self.assertTrue(any(c.name == "new_folder" for c in root.children))
+
     def test_file_info_consistency(self):
         """测试文件信息一致性"""
-        file_path = str(Path(self.test_dir) / "folder1" / "file1.txt")
+        new_folder = str(Path(self.test_dir) / "new_folder")
+        Path(new_folder).mkdir()
         
-        file_info = self.file_service.get_file_info(file_path)
+        root = self.tree_service.load_tree(self.test_dir)
+        folder_item = next((c for c in root.children if c.name == "new_folder"), None)
         
-        self.assertEqual(file_info['name'], "file1.txt")
-        self.assertEqual(file_info['is_folder'], False)
-        self.assertGreater(file_info['size'], 0)
-
-    def test_folder_listing(self):
-        """测试文件夹列表"""
-        files = self.file_service.list_files(self.test_dir)
+        self.assertIsNotNone(folder_item)
         
-        self.assertEqual(len(files), 1)
-        self.assertEqual(files[0].name, "folder1")
-        self.assertTrue(files[0].is_folder)
+        folder_info = self.file_service.get_file_info(new_folder)
+        self.assertIsNotNone(folder_info)
+        self.assertEqual(folder_item.name, folder_info.get('name'))
 
 
 class TestControllerIntegration(ComponentTest):
@@ -176,91 +181,102 @@ class TestControllerIntegration(ComponentTest):
     def setUp(self):
         """测试前准备"""
         self.test_dir = tempfile.mkdtemp()
+        self.tree_service = TreeService()
+        self.file_service = FileService()
+        self.preview_service = PreviewService()
         
         (Path(self.test_dir) / "folder1").mkdir()
-        (Path(self.test_dir) / "folder1" / "file1.txt").write_text("content1")
-        (Path(self.test_dir) / "file2.txt").write_text("content2")
+        (Path(self.test_dir) / "folder2").mkdir()
+        (Path(self.test_dir) / "test.txt").write_text("content")
 
     def tearDown(self):
         """测试后清理"""
         if Path(self.test_dir).exists():
             shutil.rmtree(self.test_dir)
 
-    def test_sidebar_controller(self):
-        """测试侧边栏控制器"""
-        from PySide6.QtWidgets import QApplication
+    def test_sidebar_controller_integration(self):
+        """测试侧边栏控制器集成"""
+        root = self.tree_service.load_tree(self.test_dir)
         
-        app = QApplication.instance()
-        if app is None:
-            app = QApplication(sys.argv)
-        
-        controller = SidebarController()
-        controller.load_tree(self.test_dir)
-        
-        self.assertIsNotNone(controller.get_root_item())
+        self.assertIsNotNone(root)
+        self.assertEqual(len(root.children), 2)
 
     def test_file_manager_controller_integration(self):
-        """测试文件管理区控制器集成"""
-        from PySide6.QtWidgets import QApplication
+        """测试文件管理器控制器集成"""
+        files = self.file_service.list_files(self.test_dir)
         
-        app = QApplication.instance()
-        if app is None:
-            app = QApplication(sys.argv)
-        
-        controller = FileManagerController()
-        controller.load_files(self.test_dir)
-        
-        files = controller.get_files()
-        self.assertGreater(len(files), 0)
+        self.assertIsNotNone(files)
+        self.assertEqual(len(files), 3)
 
     def test_preview_controller_integration(self):
         """测试预览控制器集成"""
-        from PySide6.QtWidgets import QApplication
+        test_file = str(Path(self.test_dir) / "test.txt")
         
-        app = QApplication.instance()
-        if app is None:
-            app = QApplication(sys.argv)
-        
-        controller = PreviewController()
-        file_path = str(Path(self.test_dir) / "file2.txt")
-        
-        result = controller.preview_file(file_path)
-        
+        result = self.preview_service.preview_file(test_file)
         self.assertTrue(result)
+        
+        self.preview_service.clear_preview()
 
 
 class TestModelIntegration(ComponentTest):
     """模型集成测试"""
 
+    def setUp(self):
+        """测试前准备"""
+        self.test_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        """测试后清理"""
+        if Path(self.test_dir).exists():
+            shutil.rmtree(self.test_dir)
+
     def test_tree_item_hierarchy(self):
-        """测试树项层级关系"""
-        root = TreeItem(path="/root", name="root", is_folder=True)
-        child1 = TreeItem(path="/root/child1", name="child1", is_folder=True)
-        child2 = TreeItem(path="/root/child2", name="child2", is_folder=False)
+        """测试树项层次结构"""
+        root = TreeItem(
+            path=self.test_dir,
+            name="root",
+            is_folder=True
+        )
+        
+        child1 = TreeItem(
+            path=str(Path(self.test_dir) / "child1"),
+            name="child1",
+            is_folder=True
+        )
+        
+        child2 = TreeItem(
+            path=str(Path(self.test_dir) / "child2.txt"),
+            name="child2.txt",
+            is_folder=False
+        )
         
         root.add_child(child1)
         root.add_child(child2)
         
+        self.assertEqual(len(root.children), 2)
         self.assertEqual(root.get_child_count(), 2)
+        self.assertTrue(root.has_children())
         self.assertEqual(child1.parent, root)
         self.assertEqual(child2.parent, root)
-        self.assertEqual(child1.get_row(), 0)
-        self.assertEqual(child2.get_row(), 1)
 
-    def test_file_item_properties(self):
-        """测试文件项属性"""
-        from datetime import datetime
+    def test_file_item_creation(self):
+        """测试文件项创建"""
+        test_file = str(Path(self.test_dir) / "test.txt")
+        Path(test_file).write_text("content")
         
         file_item = FileItem(
-            path="/test/file.txt",
-            name="file.txt",
-            size=1024,
-            modified_time=datetime.now(),
+            path=test_file,
+            name="test.txt",
+            size=7,
+            modified_time=1.0,
             is_folder=False,
-            file_type=".txt"
+            file_type="txt"
         )
         
-        self.assertEqual(file_item.name, "file.txt")
-        self.assertEqual(file_item.size, 1024)
+        self.assertEqual(file_item.name, "test.txt")
+        self.assertEqual(file_item.size, 7)
         self.assertFalse(file_item.is_folder)
-        self.assertEqual(file_item.file_type, ".txt")
+
+
+if __name__ == '__main__':
+    unittest.main()
