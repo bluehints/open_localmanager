@@ -19,6 +19,8 @@ class ToolBarSignals(QObject):
     view_list = Signal()
     view_detail = Signal()
     view_icon = Signal()
+    search = Signal()
+    filter = Signal()
 
 
 class ToolBar(QToolBar):
@@ -120,6 +122,22 @@ class ToolBar(QToolBar):
         refresh_action.setToolTip("刷新")
         refresh_action.triggered.connect(self.signals.refresh.emit)
         self.addAction(refresh_action)
+
+        self.addSeparator()
+
+        search_action = QAction(self)
+        search_action.setIcon(self.style().standardIcon(QStyle.SP_FileDialogDetailedView))
+        search_action.setToolTip("搜索")
+        search_action.triggered.connect(self.signals.search.emit)
+        self.addAction(search_action)
+
+        filter_action = QAction(self)
+        filter_action.setIcon(self.style().standardIcon(QStyle.SP_FileDialogDetailedView))
+        filter_action.setToolTip("过滤")
+        filter_action.triggered.connect(self.signals.filter.emit)
+        self.addAction(filter_action)
+
+        self.addSeparator()
 
         view_list_action = QAction(self)
         view_list_action.setIcon(self.style().standardIcon(QStyle.SP_FileDialogDetailedView))
