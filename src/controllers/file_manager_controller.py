@@ -100,12 +100,3 @@ class FileManagerController(QObject):
             folder_path: 文件夹路径
         """
         self.sync_with_sidebar(folder_path)
-
-    def get_files(self):
-        """
-        获取当前文件列表
-
-        Returns:
-            文件列表
-        """
-        return self.file_manager_widget.get_files()
