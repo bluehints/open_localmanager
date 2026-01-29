@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QSplitter
 )
 from PySide6.QtCore import Qt
+import os
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -34,7 +35,10 @@ class MainWindow(QMainWindow):
         self._setup_menu_bar()
         self._setup_tool_bar()
         self._setup_status_bar()
+        self._setup_config_manager()
         self.controller = MainWindowController(self)
+        
+        self.load_config()
 
     def _setup_window(self):
         """设置窗口属性"""
@@ -103,6 +107,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.status_bar)
         
         self.sidebar_widget.signals.node_selected.connect(self._on_sidebar_selected)
+        self.sidebar_widget.signals.context_menu_action.connect(self._on_sidebar_context_menu_action)
         self.file_manager_widget.signals.file_selected.connect(self._on_file_selected)
 
     def _setup_search_bar(self):
@@ -117,6 +122,11 @@ class MainWindow(QMainWindow):
         self.filter_dialog = FilterDialog(self)
         self.filter_dialog.filter_applied.connect(self._on_filter_applied)
 
+    def _setup_config_manager(self):
+        """设置配置管理器"""
+        from utils.config_manager import ConfigManager
+        self.config_manager = ConfigManager()
+
     def _on_set_path(self):
         """处理设置路径事件"""
         dialog = SetPathDialog(parent=self)
@@ -124,6 +134,7 @@ class MainWindow(QMainWindow):
             path = dialog.get_selected_path()
             self.sidebar_widget.load_tree(path)
             self.status_bar.set_path(path)
+            self.config_manager.set('current_path', path)
 
     def _on_new_folder(self):
         """处理新建文件夹事件"""
@@ -288,7 +299,7 @@ class MainWindow(QMainWindow):
         if parent_path != current_path:
             self.sidebar_widget.load_tree(parent_path)
             self.status_bar.set_path(parent_path)
-    
+
     def _refresh_current_path(self):
         """刷新当前路径"""
         current_path = self.status_bar.get_path()
@@ -301,6 +312,190 @@ class MainWindow(QMainWindow):
     def _on_sidebar_selected(self, path: str):
         """处理侧边栏选择事件"""
         self.status_bar.set_path(path)
+        from services.file_service import FileService
+        file_service = FileService()
+        files = file_service.list_files(path)
+        self.file_manager_widget.load_files(files)
+
+    def _on_sidebar_context_menu_action(self, action_type: str, path: str):
+        """
+        处理侧边栏右键菜单动作
+
+        Args:
+            action_type: 动作类型
+            path: 路径
+        """
+        if action_type == "new_folder":
+            self._on_new_folder_at_path(path)
+        elif action_type == "copy":
+            self._on_copy_path(path)
+        elif action_type == "paste":
+            self._on_paste_at_path(path)
+        elif action_type == "rename":
+            self._on_rename_path(path)
+        elif action_type == "delete":
+            self._on_delete_path(path)
+        elif action_type == "properties":
+            self._on_properties_path(path)
+
+    def _on_new_folder_at_path(self, path: str):
+        """
+        在指定路径创建文件夹
+
+        Args:
+            path: 路径
+        """
+        from PySide6.QtWidgets import QInputDialog
+        from services.folder_service import FolderService
+        
+        folder_name, ok = QInputDialog.getText(self, "新建文件夹", "请输入文件夹名称:")
+        if ok and folder_name:
+            folder_service = FolderService()
+            try:
+                new_folder_path = os.path.join(path, folder_name)
+                folder_service.create_folder(new_folder_path)
+                self._refresh_sidebar_node(path)
+                self.status_bar.set_operation(f"文件夹 '{folder_name}' 创建成功")
+            except Exception as e:
+                self.status_bar.set_operation(f"创建文件夹失败: {str(e)}")
+
+    def _on_copy_path(self, path: str):
+        """
+        复制路径
+
+        Args:
+            path: 路径
+        """
+        from utils.clipboard_manager import ClipboardManager
+        
+        clipboard_manager = ClipboardManager()
+        clipboard_manager.copy_file(path)
+        self.status_bar.set_operation(f"已复制: {os.path.basename(path)}")
+
+    def _on_paste_at_path(self, path: str):
+        """
+        在指定路径粘贴
+
+        Args:
+            path: 路径
+        """
+        from utils.clipboard_manager import ClipboardManager
+        from services.file_service import FileService
+        
+        clipboard_manager = ClipboardManager()
+        clipboard_data = clipboard_manager.get_clipboard_data()
+        
+        if clipboard_data and clipboard_data['action'] == 'copy':
+            file_service = FileService()
+            try:
+                file_service.copy_file(clipboard_data['path'], path)
+                self._refresh_sidebar_node(path)
+                self.status_bar.set_operation("粘贴成功")
+            except Exception as e:
+                self.status_bar.set_operation(f"粘贴失败: {str(e)}")
+
+    def _on_rename_path(self, path: str):
+        """
+        重命名路径
+
+        Args:
+            path: 路径
+        """
+        from PySide6.QtWidgets import QInputDialog
+        from services.file_service import FileService
+        from services.folder_service import FolderService
+        from pathlib import Path
+        
+        old_name = os.path.basename(path)
+        new_name, ok = QInputDialog.getText(self, "重命名", "请输入新名称:", text=old_name)
+        if ok and new_name and new_name != old_name:
+            try:
+                if Path(path).is_dir():
+                    folder_service = FolderService()
+                    folder_service.rename_folder(path, new_name)
+                else:
+                    file_service = FileService()
+                    file_service.rename_file(path, new_name)
+                
+                parent_path = os.path.dirname(path)
+                self._refresh_sidebar_node(parent_path)
+                self.status_bar.set_operation(f"重命名成功: {old_name} -> {new_name}")
+            except Exception as e:
+                self.status_bar.set_operation(f"重命名失败: {str(e)}")
+
+    def _on_delete_path(self, path: str):
+        """
+        删除路径
+
+        Args:
+            path: 路径
+        """
+        from PySide6.QtWidgets import QMessageBox
+        from services.file_service import FileService
+        from services.folder_service import FolderService
+        from pathlib import Path
+        
+        name = os.path.basename(path)
+        reply = QMessageBox.question(
+            self, 
+            "确认删除", 
+            f"确定要删除 '{name}' 吗？",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                if Path(path).is_dir():
+                    folder_service = FolderService()
+                    folder_service.delete_folder(path)
+                else:
+                    file_service = FileService()
+                    file_service.delete_file(path)
+                
+                parent_path = os.path.dirname(path)
+                self._refresh_sidebar_node(parent_path)
+                self.status_bar.set_operation(f"'{name}' 已删除")
+            except Exception as e:
+                self.status_bar.set_operation(f"删除失败: {str(e)}")
+
+    def _on_properties_path(self, path: str):
+        """
+        显示路径属性
+
+        Args:
+            path: 路径
+        """
+        from pathlib import Path
+        
+        try:
+            path_obj = Path(path)
+            info = path_obj.stat()
+            
+            message = f"名称: {path_obj.name}\n"
+            message += f"路径: {str(path_obj.absolute())}\n"
+            message += f"大小: {info.st_size} 字节\n"
+            message += f"修改时间: {info.st_mtime}\n"
+            message += f"类型: {'文件夹' if path_obj.is_dir() else '文件'}"
+            
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.information(self, "属性", message)
+        except Exception as e:
+            self.status_bar.set_operation(f"获取属性失败: {str(e)}")
+
+    def _refresh_sidebar_node(self, path: str):
+        """
+        刷新侧边栏节点
+
+        Args:
+            path: 路径
+        """
+        items = self.sidebar_widget.tree_widget.findItems(
+            path, Qt.MatchExactly | Qt.MatchRecursive, 0
+        )
+        if items:
+            item = items[0]
+            item.setExpanded(False)
+            item.setExpanded(True)
 
     def _on_show_hidden(self, show: bool):
         """
@@ -381,11 +576,30 @@ class MainWindow(QMainWindow):
 
     def load_config(self):
         """加载配置"""
-        pass
+        current_path = self.config_manager.get('current_path', '')
+        if current_path and os.path.exists(current_path):
+            self.sidebar_widget.load_tree(current_path)
+            self.status_bar.set_path(current_path)
+        
+        show_hidden = self.config_manager.get('show_hidden', False)
+        self.file_manager_widget.set_show_hidden(show_hidden)
+        
+        window_size = self.config_manager.get('window_size', {'width': 1200, 'height': 800})
+        self.resize(window_size['width'], window_size['height'])
 
     def save_config(self):
         """保存配置"""
-        pass
+        current_path = self.status_bar.get_path()
+        if current_path:
+            self.config_manager.set('current_path', current_path)
+        
+        show_hidden = self.file_manager_widget.proxy_model._show_hidden
+        self.config_manager.set('show_hidden', show_hidden)
+        
+        self.config_manager.set('window_size', {
+            'width': self.width(),
+            'height': self.height()
+        })
 
     def closeEvent(self, event):
         """
