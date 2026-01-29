@@ -106,7 +106,7 @@ class DateTimeHelper:
         now = DateTimeHelper.now()
         delta = now - dt
 
-        if delta.days == 0:
+        if delta.days ==0:
             if delta.seconds < 60:
                 return "刚刚"
             elif delta.seconds < 3600:
