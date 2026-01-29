@@ -34,10 +34,10 @@ class MenuBar(QMenuBar):
         """
         super().__init__(parent)
         self.signals = MenuBarSignals()
-        self._setup_menus()
+        self._setup_ui()
 
-    def _setup_menus(self):
-        """设置菜单"""
+    def _setup_ui(self):
+        """设置界面"""
         self._setup_file_menu()
         self._setup_edit_menu()
         self._setup_view_menu()
@@ -53,7 +53,7 @@ class MenuBar(QMenuBar):
         new_folder_action.triggered.connect(self.signals.file_new_folder.emit)
         file_menu.addAction(new_folder_action)
 
-        new_file_action = QAction("新建文件(&F)", self)
+        new_file_action = QAction("新建文件(&W)", self)
         new_file_action.setShortcut("Ctrl+N")
         new_file_action.triggered.connect(self.signals.file_new_file.emit)
         file_menu.addAction(new_file_action)
@@ -121,7 +121,7 @@ class MenuBar(QMenuBar):
 
         show_hidden_action = QAction("显示隐藏文件(&H)", self)
         show_hidden_action.setCheckable(True)
-        show_hidden_action.triggered.connect(self.signals.view_show_hidden.emit)
+        show_hidden_action.toggled.connect(self.signals.view_show_hidden.emit)
         view_menu.addAction(show_hidden_action)
 
     def _setup_tools_menu(self):
