@@ -8,3 +8,4 @@ class SidebarSignals(QObject):
     node_collapsed = Signal(str)
     node_selected = Signal(str)
     context_menu_requested = Signal(str, QPoint)
+    context_menu_action = Signal(str, str)

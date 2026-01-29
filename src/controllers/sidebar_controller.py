@@ -30,6 +30,7 @@ class SidebarController(QObject):
         self.sidebar_widget.signals.node_collapsed.connect(self._on_node_collapsed)
         self.sidebar_widget.signals.node_selected.connect(self._on_node_selected)
         self.sidebar_widget.signals.context_menu_requested.connect(self._on_context_menu_requested)
+        self.sidebar_widget.signals.context_menu_action.connect(self._on_context_menu_action)
 
     def _on_node_expanded(self, path: str):
         """
@@ -73,6 +74,66 @@ class SidebarController(QObject):
             position: 位置
         """
         pass
+
+    def _on_context_menu_action(self, action_type: str, path: str):
+        """
+        处理右键菜单动作事件
+
+        Args:
+            action_type: 动作类型
+            path: 路径
+        """
+        if action_type == "open":
+            self.sidebar_widget.signals.node_selected.emit(path)
+        elif action_type == "expand":
+            self._expand_node(path)
+        elif action_type == "collapse":
+            self._collapse_node(path)
+        elif action_type == "refresh":
+            self._refresh_node(path)
+
+    def _expand_node(self, path: str):
+        """
+        展开节点
+
+        Args:
+            path: 路径
+        """
+        items = self.sidebar_widget.tree_widget.findItems(
+            path, Qt.MatchExactly | Qt.MatchRecursive, 0
+        )
+        if items:
+            item = items[0]
+            item.setExpanded(True)
+
+    def _collapse_node(self, path: str):
+        """
+        收起节点
+
+        Args:
+            path: 路径
+        """
+        items = self.sidebar_widget.tree_widget.findItems(
+            path, Qt.MatchExactly | Qt.MatchRecursive, 0
+        )
+        if items:
+            item = items[0]
+            item.setExpanded(False)
+
+    def _refresh_node(self, path: str):
+        """
+        刷新节点
+
+        Args:
+            path: 路径
+        """
+        items = self.sidebar_widget.tree_widget.findItems(
+            path, Qt.MatchExactly | Qt.MatchRecursive, 0
+        )
+        if items:
+            item = items[0]
+            item.setExpanded(False)
+            item.setExpanded(True)
 
     def sync_with_file_manager(self, file_path: str):
         """

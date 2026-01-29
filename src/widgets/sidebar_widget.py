@@ -13,6 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from signals.sidebar_signals import SidebarSignals
 from utils.icon_provider import IconProvider
+from widgets.tree_context_menu import TreeContextMenu
 
 
 class SidebarWidget(QWidget):
@@ -28,6 +29,7 @@ class SidebarWidget(QWidget):
         super().__init__(parent)
         self.signals = SidebarSignals()
         self.icon_provider = IconProvider()
+        self.context_menu = TreeContextMenu(self)
         self._setup_ui()
         self._setup_connections()
 
@@ -52,11 +54,11 @@ class SidebarWidget(QWidget):
         self.tree_widget.itemClicked.connect(self._on_item_clicked)
         self.tree_widget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree_widget.customContextMenuRequested.connect(self._on_context_menu)
+        self.context_menu.action_triggered.connect(self._on_context_menu_action)
 
     def _on_item_expanded(self, item: QTreeWidgetItem):
         """
         处理节点展开事件
-
 
         Args:
             item: 树项
@@ -76,7 +78,6 @@ class SidebarWidget(QWidget):
         """
         处理节点收起事件
 
-
         Args:
             item: 树项
         """
@@ -86,7 +87,6 @@ class SidebarWidget(QWidget):
     def _on_item_clicked(self, item: QTreeWidgetItem, column: int):
         """
         处理节点点击事件
-
 
         Args:
             item: 树项
@@ -105,7 +105,18 @@ class SidebarWidget(QWidget):
         item = self.tree_widget.itemAt(position)
         if item:
             path = item.data(0, Qt.UserRole)
-            self.signals.context_menu_requested.emit(path, position)
+            global_position = self.tree_widget.mapToGlobal(position)
+            self.context_menu.show_menu(global_position, path, is_folder=True)
+
+    def _on_context_menu_action(self, action_type: str, path: str):
+        """
+        处理右键菜单动作
+
+        Args:
+            action_type: 动作类型
+            path: 路径
+        """
+        self.signals.context_menu_action.emit(action_type, path)
 
     def load_tree(self, root_path: str):
         """
@@ -152,7 +163,8 @@ class SidebarWidget(QWidget):
                     try:
                         sub_entries = os.listdir(entry_path)
                         for sub_entry in sub_entries:
-                            if os.path.isdir(os.path.join(entry_path, sub_entry)):
+                            sub_entry_path = os.path.join(entry_path, sub_entry)
+                            if os.path.isdir(sub_entry_path):
                                 has_children = True
                                 break
                     except Exception:
@@ -162,7 +174,7 @@ class SidebarWidget(QWidget):
                         placeholder_item = QTreeWidgetItem(child_item)
                         placeholder_item.setText(0, "+")
 
-        except Exception:
+        except Exception as e:
             pass
 
     def select_node(self, path: str):
