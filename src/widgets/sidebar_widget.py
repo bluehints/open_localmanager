@@ -41,6 +41,8 @@ class SidebarWidget(QWidget):
         self.tree_widget.setEditTriggers(QTreeWidget.NoEditTriggers)
         self.tree_widget.setExpandsOnDoubleClick(False)
         self.tree_widget.setIndentation(15)
+        self.tree_widget.setUniformRowHeights(True)
+        self.tree_widget.setAnimated(True)
         layout.addWidget(self.tree_widget)
 
     def _setup_connections(self):
@@ -54,6 +56,7 @@ class SidebarWidget(QWidget):
     def _on_item_expanded(self, item: QTreeWidgetItem):
         """
         处理节点展开事件
+
 
         Args:
             item: 树项
@@ -73,6 +76,7 @@ class SidebarWidget(QWidget):
         """
         处理节点收起事件
 
+
         Args:
             item: 树项
         """
@@ -82,6 +86,7 @@ class SidebarWidget(QWidget):
     def _on_item_clicked(self, item: QTreeWidgetItem, column: int):
         """
         处理节点点击事件
+
 
         Args:
             item: 树项
@@ -115,7 +120,7 @@ class SidebarWidget(QWidget):
             return
 
         root_item = QTreeWidgetItem(self.tree_widget)
-        root_item.setText(0, root_path)
+        root_item.setText(0, os.path.basename(root_path) or root_path)
         root_item.setData(0, Qt.UserRole, root_path)
         root_item.setIcon(0, self.icon_provider.get_folder_icon())
         root_item.setExpanded(True)
