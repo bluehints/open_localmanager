@@ -174,3 +174,61 @@ class ClipboardManager(QObject):
             return True
         except Exception:
             return False
+
+    def copy_file(self, file_path: str) -> bool:
+        """
+        复制文件到剪贴板
+
+        Args:
+            file_path: 文件路径
+
+        Returns:
+            复制是否成功
+        """
+        try:
+            mime_data = QMimeData()
+            mime_data.setText(f"copy:{file_path}")
+            mime_data.setUrls([QUrl.fromLocalFile(file_path)])
+            self.clipboard.setMimeData(mime_data)
+            return True
+        except Exception:
+            return False
+
+    def cut_file(self, file_path: str) -> bool:
+        """
+        剪切文件到剪贴板
+        Args:
+            file_path: 文件路径
+        Returns:
+            剪切是否成功
+        """
+        try:
+            mime_data = QMimeData()
+            mime_data.setText(f"cut:{file_path}")
+            mime_data.setUrls([QUrl.fromLocalFile(file_path)])
+            self.clipboard.setMimeData(mime_data)
+            return True
+        except Exception:
+            return False
+
+    def get_clipboard_data(self) -> Optional[dict]:
+        """
+        获取剪贴板数据
+
+        Returns:
+            剪贴板数据字典
+        """
+        try:
+            mime_data = self.clipboard.mimeData()
+            if mime_data is None:
+                return None
+
+            text = mime_data.text()
+            if text.startswith("copy:"):
+                return {'action': 'copy', 'path': text[5:]}
+            elif text.startswith("cut:"):
+                return {'action': 'cut', 'path': text[4:]}
+            else:
+                return None
+        except Exception:
+            return None
