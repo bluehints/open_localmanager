@@ -17,7 +17,7 @@ class PreviewZoomer:
             widget: 预览组件
         """
         self.widget = widget
-        self._zoom_level = 1.0
+        self._zoom_level =1.0
         self._min_zoom = 0.1
         self._max_zoom = 10.0
         self._zoom_step = 0.1
@@ -66,7 +66,7 @@ class PreviewZoomer:
         Args:
             step: 缩放步长
         """
-        if step > 0:
+        if step >0:
             self._zoom_step = step
 
     def get_zoom_step(self) -> float:
@@ -86,7 +86,7 @@ class PreviewZoomer:
             min_zoom: 最小缩放
             max_zoom: 最大缩放
         """
-        if min_zoom > 0 and max_zoom > min_zoom:
+        if min_zoom >0 and max_zoom > min_zoom:
             self._min_zoom = min_zoom
             self._max_zoom = max_zoom
 
@@ -131,4 +131,4 @@ class PreviewZoomer:
         Returns:
             缩放百分比
         """
-        return int(self._zoom_level * 100)
+        return int(self._zoom_level *100)
