@@ -51,21 +51,12 @@ class LogManager:
             console_handler.setFormatter(formatter)
             self.logger.addHandler(console_handler)
 
-    def get_logger(self) -> logging.Logger:
-        """
-        获取日志记录器
-
-        Returns:
-            日志记录器
-        """
-        return self.logger
-
     def debug(self, message: str) -> None:
         """
         记录调试信息
 
         Args:
-            message: 消息内容
+            message: 日志消息
         """
         self.logger.debug(message)
 
@@ -74,45 +65,46 @@ class LogManager:
         记录信息
 
         Args:
-            message: 消息内容
+            message: 日志消息
         """
         self.logger.info(message)
 
     def warning(self, message: str) -> None:
         """
-        记录警告
+        记录警告信息
 
         Args:
-            message: 消息内容
+            message: 日志消息
         """
         self.logger.warning(message)
 
     def error(self, message: str) -> None:
         """
-        记录错误
+        记录错误信息
 
         Args:
-            message: 消息内容
+            message: 日志消息
         """
         self.logger.error(message)
 
     def critical(self, message: str) -> None:
         """
-        记录严重错误
+        记录严重错误信息
 
         Args:
-            message: 消息内容
+            message: 日志消息
         """
         self.logger.critical(message)
 
-    def exception(self, message: str) -> None:
+    def exception(self, message: str, exc_info: bool = True) -> None:
         """
-        记录异常
+        记录异常信息
 
         Args:
-            message: 消息内容
+            message: 日志消息
+            exc_info: 是否包含异常信息
         """
-        self.logger.exception(message)
+        self.logger.exception(message, exc_info=exc_info)
 
     def set_level(self, level: str) -> None:
         """
@@ -121,20 +113,54 @@ class LogManager:
         Args:
             level: 日志级别
         """
-        self.logger.setLevel(level)
+        self.config.log_level = level
+        self.logger.setLevel(self.config.get_log_level())
+        for handler in self.logger.handlers:
+            handler.setLevel(self.config.get_log_level())
 
-    def get_level(self) -> str:
+    def get_log_files(self) -> list:
         """
-        获取日志级别
+        获取日志文件列表
 
         Returns:
-            日志级别
+            日志文件列表
         """
-        return self.logger.level
+        log_dir = Path(self.config.log_file_path).parent
+        log_files = []
+        for file in os.listdir(log_dir):
+            if file.startswith('app.log') or (file.startswith('app.log.') and file.endswith('.log')):
+                log_files.append(os.path.join(log_dir, file))
+        return sorted(log_files, reverse=True)
 
-    def close(self) -> None:
-        """关闭日志管理器"""
-        handlers = self.logger.handlers[:]
-        for handler in handlers:
-            handler.close()
-            self.logger.removeHandler(handler)
+    def clear_logs(self) -> bool:
+        """
+        清空日志文件
+
+        Returns:
+            清空是否成功
+        """
+        try:
+            log_dir = Path(self.config.log_file_path).parent
+            for file in os.listdir(log_dir):
+                if file.startswith('app.log') or (file.startswith('app.log.') and file.endswith('.log')):
+                    file_path = os.path.join(log_dir, file)
+                    os.remove(file_path)
+            return True
+        except Exception:
+            return False
+
+    def get_log_content(self, log_file: str) -> Optional[str]:
+        """
+        获取日志文件内容
+
+        Args:
+            log_file: 日志文件路径
+
+        Returns:
+            日志内容
+        """
+        try:
+            with open(log_file, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception:
+            return None
