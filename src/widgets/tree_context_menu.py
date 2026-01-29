@@ -1,4 +1,5 @@
-from PySide6.QtWidgets import QMenu, QAction
+from PySide6.QtWidgets import QMenu
+from PySide6.QtGui import QAction
 from PySide6.QtCore import QObject, Signal, QPoint
 from typing import Optional
 
