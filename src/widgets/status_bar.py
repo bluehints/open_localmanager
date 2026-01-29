@@ -77,6 +77,18 @@ class StatusBar(QStatusBar):
         else:
             self._path_label.setText("当前路径: 未选择")
 
+    def get_path(self) -> str:
+        """
+        获取当前路径
+
+        Returns:
+            当前路径
+        """
+        text = self._path_label.text()
+        if text.startswith("当前路径: "):
+            return text[6:]
+        return ""
+
     def set_file_count(self, count: int):
         """
         设置文件数量
@@ -99,6 +111,18 @@ class StatusBar(QStatusBar):
             self.signals.selection_changed.emit(selection)
         else:
             self._selection_label.setText("选中: 无")
+
+    def get_selection(self) -> str:
+        """
+        获取选中信息
+
+        Returns:
+            选中信息
+        """
+        text = self._selection_label.text()
+        if text.startswith("选中: ") and text != "选中: 无":
+            return text[4:]
+        return ""
 
     def set_operation(self, operation: str):
         """
