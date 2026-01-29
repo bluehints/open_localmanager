@@ -99,7 +99,7 @@ class FileService:
         重命名文件
 
         Args:
-            old_path: 旧文件路径
+            old_path: 原文件路径
             new_path: 新文件路径
             overwrite: 是否覆盖已存在的文件
 
@@ -111,6 +111,7 @@ class FileService:
             self.validator.validate_path(new_path)
             self.validator.validate_file_exists(old_path)
             self.validator.validate_file_permission(old_path)
+            self.validator.validate_filename(os.path.basename(new_path))
 
             if os.path.exists(new_path) and not overwrite:
                 raise FileExists(new_path)
@@ -119,6 +120,30 @@ class FileService:
             return True
         except Exception as e:
             raise FilePermissionDenied(f"重命名文件失败: {str(e)}")
+
+    def create_file(self, file_path: str, content: str = "") -> bool:
+        """
+        创建文件
+
+        Args:
+            file_path: 文件路径
+            content: 文件内容
+
+        Returns:
+            操作是否成功
+        """
+        try:
+            self.validator.validate_path(file_path)
+            self.validator.validate_filename(os.path.basename(file_path))
+
+            if os.path.exists(file_path):
+                raise FileExists(file_path)
+
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            return True
+        except Exception as e:
+            raise FilePermissionDenied(f"创建文件失败: {str(e)}")
 
     def get_file_info(self, file_path: str) -> Dict[str, Any]:
         """
@@ -129,17 +154,18 @@ class FileService:
 
         Returns:
             文件信息字典
+
+        Raises:
+            FileNotFound: 文件不存在
         """
         try:
             self.validator.validate_path(file_path)
-            self.validator.validate_file_exists(file_path)
-
+            
             if not os.path.exists(file_path):
                 raise FileNotFound(file_path)
 
             stat = os.stat(file_path)
-            is_folder = os.path.isdir(file_path)
-            file_type = os.path.splitext(file_path)[1] if not is_folder else 'folder'
+            path_obj = Path(file_path)
 
             return {
                 'path': file_path,
@@ -147,8 +173,8 @@ class FileService:
                 'size': stat.st_size,
                 'modified_time': datetime.fromtimestamp(stat.st_mtime),
                 'created_time': datetime.fromtimestamp(stat.st_ctime),
-                'is_folder': is_folder,
-                'file_type': file_type
+                'is_folder': path_obj.is_dir(),
+                'file_type': path_obj.suffix if path_obj.suffix else '文件'
             }
         except Exception as e:
             raise FileNotFound(f"获取文件信息失败: {str(e)}")
@@ -187,70 +213,7 @@ class FileService:
                     is_folder=file_info['is_folder'],
                     file_type=file_info['file_type']
                 ))
+
             return files
         except Exception as e:
             raise FileNotFound(f"列出文件失败: {str(e)}")
-
-    def create_file(self, file_path: str) -> bool:
-        """
-        创建文件
-
-        Args:
-            file_path: 文件路径
-
-        Returns:
-            操作是否成功
-        """
-        try:
-            self.validator.validate_path(file_path)
-            self.validator.validate_filename(os.path.basename(file_path))
-
-            if os.path.exists(file_path):
-                raise FileExists(file_path)
-
-            Path(file_path).touch()
-            return True
-        except Exception as e:
-            raise FilePermissionDenied(f"创建文件失败: {str(e)}")
-
-    def read_file(self, file_path: str, encoding: str = 'utf-8') -> str:
-        """
-        读取文件内容
-
-        Args:
-            file_path: 文件路径
-            encoding: 文件编码
-
-        Returns:
-            文件内容
-        """
-        try:
-            self.validator.validate_path(file_path)
-            self.validator.validate_file_exists(file_path)
-
-            with open(file_path, 'r', encoding=encoding) as f:
-                return f.read()
-        except Exception as e:
-            raise FilePermissionDenied(f"读取文件失败: {str(e)}")
-
-    def write_file(self, file_path: str, content: str, encoding: str = 'utf-8') -> bool:
-        """
-        写入文件内容
-
-        Args:
-            file_path: 文件路径
-            content: 文件内容
-            encoding: 文件编码
-
-        Returns:
-            操作是否成功
-        """
-        try:
-            self.validator.validate_path(file_path)
-            self.validator.validate_file_permission(file_path)
-
-            with open(file_path, 'w', encoding=encoding) as f:
-                f.write(content)
-            return True
-        except Exception as e:
-            raise FilePermissionDenied(f"写入文件失败: {str(e)}")
