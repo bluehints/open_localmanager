@@ -22,6 +22,12 @@ class TreeContextMenu(QObject):
 
     def _setup_menu(self):
         """设置菜单"""
+        self._open_action = QAction("打开", self._menu)
+        self._open_action.triggered.connect(lambda: self._on_action("open"))
+        self._menu.addAction(self._open_action)
+
+        self._menu.addSeparator()
+
         self._expand_action = QAction("展开", self._menu)
         self._expand_action.triggered.connect(lambda: self._on_action("expand"))
         self._menu.addAction(self._expand_action)
@@ -55,6 +61,12 @@ class TreeContextMenu(QObject):
         self._delete_action = QAction("删除", self._menu)
         self._delete_action.triggered.connect(lambda: self._on_action("delete"))
         self._menu.addAction(self._delete_action)
+
+        self._menu.addSeparator()
+
+        self._properties_action = QAction("属性", self._menu)
+        self._properties_action.triggered.connect(lambda: self._on_action("properties"))
+        self._menu.addAction(self._properties_action)
 
         self._menu.addSeparator()
 
