@@ -15,6 +15,8 @@ from widgets.file_manager_widget import FileManagerWidget
 from services.preview_service import PreviewService
 from widgets.menu_bar import MenuBar
 from widgets.set_path_dialog import SetPathDialog
+from widgets.status_bar import StatusBar
+from widgets.tool_bar import ToolBar
 
 
 class MainWindow(QMainWindow):
@@ -26,6 +28,8 @@ class MainWindow(QMainWindow):
         self._setup_window()
         self._setup_ui()
         self._setup_menu_bar()
+        self._setup_tool_bar()
+        self._setup_status_bar()
         self.controller = MainWindowController(self)
 
     def _setup_window(self):
@@ -70,12 +74,77 @@ class MainWindow(QMainWindow):
         
         self.menu_bar.signals.tools_set_path.connect(self._on_set_path)
 
+    def _setup_tool_bar(self):
+        """设置工具栏"""
+        self.tool_bar = ToolBar(self)
+        self.addToolBar(self.tool_bar)
+        
+        self.tool_bar.signals.new_folder.connect(self._on_new_folder)
+        self.tool_bar.signals.copy.connect(self._on_copy)
+        self.tool_bar.signals.paste.connect(self._on_paste)
+        self.tool_bar.signals.cut.connect(self._on_cut)
+        self.tool_bar.signals.delete.connect(self._on_delete)
+        self.tool_bar.signals.rename.connect(self._on_rename)
+        self.tool_bar.signals.refresh.connect(self._on_refresh)
+        self.tool_bar.signals.up.connect(self._on_up)
+
+    def _setup_status_bar(self):
+        """设置状态栏"""
+        self.status_bar = StatusBar(self)
+        self.setStatusBar(self.status_bar)
+        
+        self.sidebar_widget.signals.node_selected.connect(self._on_sidebar_selected)
+        self.file_manager_widget.signals.file_selected.connect(self._on_file_selected)
+
     def _on_set_path(self):
         """处理设置路径事件"""
         dialog = SetPathDialog(parent=self)
         if dialog.exec():
             path = dialog.get_selected_path()
             self.sidebar_widget.load_tree(path)
+            self.status_bar.set_path(path)
+
+    def _on_new_folder(self):
+        """处理新建文件夹事件"""
+        pass
+
+    def _on_copy(self):
+        """处理复制事件"""
+        pass
+
+    def _on_paste(self):
+        """处理粘贴事件"""
+        pass
+
+    def _on_cut(self):
+        """处理剪切事件"""
+        pass
+
+    def _on_delete(self):
+        """处理删除事件"""
+        pass
+
+    def _on_rename(self):
+        """处理重命名事件"""
+        pass
+
+    def _on_refresh(self):
+        """处理刷新事件"""
+        pass
+
+    def _on_up(self):
+        """处理上一级事件"""
+        pass
+
+    def _on_sidebar_selected(self, path: str):
+        """处理侧边栏选择事件"""
+        self.status_bar.set_path(path)
+
+    def _on_file_selected(self, file_path: str):
+        """处理文件选择事件"""
+        from pathlib import Path
+        path = Path(file_path)
+        self.status_bar.set_selection(f"{path.name}")
 
     def load_config(self):
         """加载配置"""
