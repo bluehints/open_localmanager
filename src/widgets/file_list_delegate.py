@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QStyledItemDelegate, QApplication, QStyle
-from PySide6.QtCore import QSize, Qt, QRect
+from PySide6.QtCore import QSize, Qt, QRect, QEvent
 from PySide6.QtGui import QPainter, QIcon, QFont, QColor
 from typing import Optional
 from models.file_item import FileItem
@@ -146,7 +146,7 @@ class FileListDelegate(QStyledItemDelegate):
         icon_provider = IconProvider()
 
         if file_item.is_folder:
-            return icon_provider.get_folder_icon(file_item.path)
+            return icon_provider.get_folder_icon()
         else:
             return icon_provider.get_file_icon(file_item.path)
 
@@ -163,7 +163,7 @@ class FileListDelegate(QStyledItemDelegate):
         Returns:
             是否处理事件
         """
-        if event.type() == event.KeyPress:
-            if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
+        if event.type() == QEvent.Type.KeyPress:
+            if event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
                 return True
         return False

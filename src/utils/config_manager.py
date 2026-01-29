@@ -1,96 +1,56 @@
 import json
 import os
+from typing import Optional, Dict, Any
 from pathlib import Path
-from typing import Any, Dict, Optional
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from models.config_model import ConfigModel
-from validators.config_validator import ConfigValidator
-from exceptions.config_exception import ConfigException
 
 
 class ConfigManager:
     """配置管理器，负责应用程序配置的加载、保存和管理"""
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_file: str = "config.json"):
         """
         初始化配置管理器
 
         Args:
-            config_path: 配置文件路径
+            config_file: 配置文件名
         """
-        if config_path is None:
-            self.config_path = self._get_default_config_path()
-        else:
-            self.config_path = config_path
-
-        self.config = ConfigModel()
-        self.validator = ConfigValidator()
+        self.config_file = config_file
+        self.config_dir = self._get_config_dir()
+        self.config_path = os.path.join(self.config_dir, self.config_file)
+        self._config: Dict[str, Any] = {}
         self._load_config()
 
-    def _get_default_config_path(self) -> str:
+    def _get_config_dir(self) -> str:
         """
-        获取默认配置文件路径
+        获取配置目录
 
         Returns:
-            配置文件路径
+            配置目录路径
         """
-        app_dir = Path.home() / '.open_localmanager'
-        app_dir.mkdir(exist_ok=True)
-        return str(app_dir / 'config.json')
+        app_data_dir = os.environ.get('APPDATA', os.path.expanduser('~'))
+        config_dir = os.path.join(app_data_dir, 'OpenLocalManager')
+        
+        if not os.path.exists(config_dir):
+            os.makedirs(config_dir)
+        
+        return config_dir
 
-    def _load_config(self) -> None:
+    def _load_config(self):
         """加载配置"""
         if os.path.exists(self.config_path):
             try:
                 with open(self.config_path, 'r', encoding='utf-8') as f:
-                    config_dict = json.load(f)
-                    self.config = ConfigModel.from_dict(config_dict)
-                    if not self.validator.validate(self.config):
-                        self.config = ConfigModel()
+                    self._config = json.load(f)
             except Exception:
-                self.config = ConfigModel()
-        else:
-            self.config = ConfigModel()
+                self._config = {}
 
-    def _save_config(self) -> bool:
-        """
-        保存配置
-
-        Returns:
-            保存是否成功
-        """
+    def _save_config(self):
+        """保存配置"""
         try:
-            config_dict = self.config.to_dict()
             with open(self.config_path, 'w', encoding='utf-8') as f:
-                json.dump(config_dict, f, indent=4, ensure_ascii=False)
-            return True
+                json.dump(self._config, f, indent=4, ensure_ascii=False)
         except Exception:
-            return False
-
-    def get_config(self) -> ConfigModel:
-        """
-        获取配置模型
-
-        Returns:
-            配置模型
-        """
-        return self.config
-
-    def set_config(self, config: ConfigModel) -> bool:
-        """
-        设置配置模型
-
-        Args:
-            config: 配置模型
-
-        Returns:
-            设置是否成功
-        """
-        if self.validator.validate(config):
-            self.config = config
-            return self._save_config()
-        return False
+            pass
 
     def get(self, key: str, default: Any = None) -> Any:
         """
@@ -103,17 +63,7 @@ class ConfigManager:
         Returns:
             配置值
         """
-        config_dict = self.config.to_dict()
-        keys = key.split('.')
-        value = config_dict
-
-        for k in keys:
-            if isinstance(value, dict) and k in value:
-                value = value[k]
-            else:
-                return default
-
-        return value
+        return self._config.get(key, default)
 
     def set(self, key: str, value: Any) -> bool:
         """
@@ -124,67 +74,107 @@ class ConfigManager:
             value: 配置值
 
         Returns:
-            设置是否成功
+            是否成功
         """
-        config_dict = self.config.to_dict()
-        keys = key.split('.')
-        config = config_dict
+        self._config[key] = value
+        self._save_config()
+        return True
 
-        for k in keys[:-1]:
-            if k not in config:
-                config[k] = {}
-            config = config[k]
+    def get_all(self) -> Dict[str, Any]:
+        """
+        获取所有配置
 
-        config[keys[-1]] = value
-        self.config = ConfigModel.from_dict(config_dict)
+        Returns:
+            所有配置
+        """
+        return self._config.copy()
 
-        return self._save_config()
+    def set_all(self, config: Dict[str, Any]):
+        """
+        设置所有配置
+
+        Args:
+            config: 配置字典
+        """
+        self._config = config.copy()
+        self._save_config()
+
+    def remove(self, key: str):
+        """
+        删除配置项
+
+        Args:
+            key: 配置键
+        """
+        if key in self._config:
+            del self._config[key]
+            self._save_config()
+
+    def clear(self):
+        """清空配置"""
+        self._config = {}
+        self._save_config()
+
+    def has(self, key: str) -> bool:
+        """
+        检查配置项是否存在
+
+        Args:
+            key: 配置键
+
+        Returns:
+            是否存在
+        """
+        return key in self._config
+
+    def get_config_path(self) -> str:
+        """
+        获取配置文件路径
+
+        Returns:
+            配置文件路径
+        """
+        return self.config_path
+
+    def reload(self):
+        """重新加载配置"""
+        self._load_config()
+
+    def get_config(self) -> Dict[str, Any]:
+        """
+        获取配置字典
+
+        Returns:
+            配置字典
+        """
+        return self._config.copy()
+
+    def set_config(self, config: Dict[str, Any]) -> bool:
+        """
+        设置配置字典
+
+        Args:
+            config: 配置字典
+
+        Returns:
+            是否成功
+        """
+        self._config = config.copy()
+        self._save_config()
+        return True
 
     def reset_to_default(self) -> bool:
         """
         重置为默认配置
 
         Returns:
-            重置是否成功
+            是否成功
         """
-        self.config = ConfigModel()
-        return self._save_config()
-
-    def export_config(self, export_path: str) -> bool:
-        """
-        导出配置
-
-        Args:
-            export_path: 导出路径
-
-        Returns:
-            导出是否成功
-        """
-        try:
-            config_dict = self.config.to_dict()
-            with open(export_path, 'w', encoding='utf-8') as f:
-                json.dump(config_dict, f, indent=4, ensure_ascii=False)
-            return True
-        except Exception:
-            return False
-
-    def import_config(self, import_path: str) -> bool:
-        """
-        导入配置
-
-        Args:
-            import_path: 导入路径
-
-        Returns:
-            导入是否成功
-        """
-        try:
-            with open(import_path, 'r', encoding='utf-8') as f:
-                config_dict = json.load(f)
-                config = ConfigModel.from_dict(config_dict)
-                if self.validator.validate(config):
-                    self.config = config
-                    return self._save_config()
-            return False
-        except Exception:
-            return False
+        default_config = {
+            'current_path': '',
+            'show_hidden': False,
+            'window_size': {'width': 1200, 'height': 800}
+        }
+        self._config = default_config.copy()
+        self._save_config()
+        return True

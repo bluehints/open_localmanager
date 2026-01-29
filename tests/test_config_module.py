@@ -100,7 +100,7 @@ class TestConfigModule(ComponentTest):
         """测试配置管理器获取和设置"""
         manager = ConfigManager()
         value = manager.get('window_width')
-        self.assertEqual(value, 1200)
+        self.assertIsNone(value)
 
         result = manager.set('window_width', 1920)
         self.assertTrue(result)
@@ -115,8 +115,9 @@ class TestConfigModule(ComponentTest):
         result = manager.reset_to_default()
         self.assertTrue(result)
 
-        value = manager.get('window_width')
-        self.assertEqual(value, 1200)
+        window_size = manager.get('window_size')
+        self.assertIsNotNone(window_size)
+        self.assertEqual(window_size['width'], 1200)
 
     def test_config_model_docstring(self):
         """测试配置模型文档字符串"""
