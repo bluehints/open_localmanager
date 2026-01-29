@@ -17,6 +17,9 @@ from widgets.menu_bar import MenuBar
 from widgets.set_path_dialog import SetPathDialog
 from widgets.status_bar import StatusBar
 from widgets.tool_bar import ToolBar
+from widgets.search_box import SearchBox
+from widgets.filter_dialog import FilterDialog
+from services.search_service import SearchService
 
 
 class MainWindow(QMainWindow):
@@ -26,6 +29,7 @@ class MainWindow(QMainWindow):
         """初始化主窗口"""
         super().__init__()
         self._setup_window()
+        self._setup_search_bar()
         self._setup_ui()
         self._setup_menu_bar()
         self._setup_tool_bar()
@@ -45,6 +49,8 @@ class MainWindow(QMainWindow):
 
         main_layout = QVBoxLayout(central_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
+
+        main_layout.addWidget(self.search_box)
 
         splitter = QSplitter(Qt.Horizontal)
         main_layout.addWidget(splitter)
@@ -87,6 +93,8 @@ class MainWindow(QMainWindow):
         self.tool_bar.signals.rename.connect(self._on_rename)
         self.tool_bar.signals.refresh.connect(self._on_refresh)
         self.tool_bar.signals.up.connect(self._on_up)
+        self.tool_bar.signals.search.connect(self.show_search_bar)
+        self.tool_bar.signals.filter.connect(self.show_filter_dialog)
 
     def _setup_status_bar(self):
         """设置状态栏"""
@@ -95,6 +103,18 @@ class MainWindow(QMainWindow):
         
         self.sidebar_widget.signals.node_selected.connect(self._on_sidebar_selected)
         self.file_manager_widget.signals.file_selected.connect(self._on_file_selected)
+
+    def _setup_search_bar(self):
+        """设置搜索栏"""
+        self.search_box = SearchBox(self)
+        self.search_box.setVisible(False)
+        self.search_box.search_changed.connect(self._on_search_changed)
+        self.search_box.search_cleared.connect(self._on_search_cleared)
+
+        self.search_service = SearchService()
+
+        self.filter_dialog = FilterDialog(self)
+        self.filter_dialog.filter_applied.connect(self._on_filter_applied)
 
     def _on_set_path(self):
         """处理设置路径事件"""
@@ -145,6 +165,67 @@ class MainWindow(QMainWindow):
         from pathlib import Path
         path = Path(file_path)
         self.status_bar.set_selection(f"{path.name}")
+
+    def _on_search_changed(self, text: str):
+        """
+        处理搜索文本变化事件
+
+        Args:
+            text: 搜索文本
+        """
+        if text:
+            current_path = self.status_bar.get_path()
+            if current_path:
+                results = self.search_service.search_files(current_path, text)
+                self.file_manager_widget.load_files(results)
+                self.status_bar.set_message(f"找到 {len(results)} 个结果")
+
+    def _on_search_cleared(self):
+        """处理搜索清除事件"""
+        current_path = self.status_bar.get_path()
+        if current_path:
+            from services.file_service import FileService
+            file_service = FileService()
+            files = file_service.list_files(current_path)
+            self.file_manager_widget.load_files(files)
+            self.status_bar.set_message("")
+
+    def _on_filter_applied(self, config: dict):
+        """
+        处理过滤应用事件
+
+        Args:
+            config: 过滤配置
+        """
+        self.file_manager_widget.set_filter_text(config.get('name', ''))
+        self.file_manager_widget.set_show_hidden(config.get('show_hidden', False))
+
+        file_type = config.get('type', '全部')
+        if file_type == '文件夹':
+            self.file_manager_widget.proxy_model.set_filter_folders(False)
+            self.file_manager_widget.proxy_model.set_filter_files(True)
+        elif file_type == '文件':
+            self.file_manager_widget.proxy_model.set_filter_folders(True)
+            self.file_manager_widget.proxy_model.set_filter_files(False)
+        else:
+            self.file_manager_widget.proxy_model.set_filter_folders(False)
+            self.file_manager_widget.proxy_model.set_filter_files(False)
+
+        self.status_bar.set_message("过滤已应用")
+
+    def show_search_bar(self):
+        """显示搜索栏"""
+        self.search_box.setVisible(True)
+        self.search_box.set_focus()
+
+    def hide_search_bar(self):
+        """隐藏搜索栏"""
+        self.search_box.setVisible(False)
+        self.search_box.clear()
+
+    def show_filter_dialog(self):
+        """显示过滤对话框"""
+        self.filter_dialog.exec()
 
     def load_config(self):
         """加载配置"""
