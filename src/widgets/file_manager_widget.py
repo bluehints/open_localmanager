@@ -1,8 +1,7 @@
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
-    QTableWidget,
-    QTableWidgetItem,
+    QTableView,
     QHeaderView
 )
 from PySide6.QtCore import Qt, QPoint
@@ -10,6 +9,9 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from signals.file_manager_signals import FileManagerSignals
+from models.file_table_model import FileTableModel
+from models.file_sort_filter_proxy_model import FileSortFilterProxyModel
+from widgets.file_list_delegate import FileListDelegate
 
 
 class FileManagerWidget(QWidget):
@@ -32,53 +34,58 @@ class FileManagerWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self.table_widget = QTableWidget()
-        self.table_widget.setColumnCount(4)
-        self.table_widget.setHorizontalHeaderLabels(["名称", "大小", "修改时间", "类型"])
-        self.table_widget.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table_widget.setSelectionMode(QTableWidget.SingleSelection)
-        self.table_widget.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.table_widget.setSortingEnabled(True)
-        self.table_widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table_view = QTableView()
+        self.table_view.setSelectionBehavior(QTableView.SelectRows)
+        self.table_view.setSelectionMode(QTableView.SingleSelection)
+        self.table_view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table_view.setSortingEnabled(True)
 
-        header = self.table_widget.horizontalHeader()
+        self.table_model = FileTableModel()
+        self.proxy_model = FileSortFilterProxyModel()
+        self.proxy_model.setSourceModel(self.table_model)
+        self.table_view.setModel(self.proxy_model)
+
+        delegate = FileListDelegate()
+        self.table_view.setItemDelegate(delegate)
+
+        header = self.table_view.horizontalHeader()
         header.setStretchLastSection(True)
         header.setSectionResizeMode(0, QHeaderView.Stretch)
         header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
 
-        layout.addWidget(self.table_widget)
+        layout.addWidget(self.table_view)
 
     def _setup_connections(self):
         """建立信号槽连接"""
-        self.table_widget.itemClicked.connect(self._on_item_clicked)
-        self.table_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
-        self.table_widget.customContextMenuRequested.connect(self._on_context_menu)
+        self.table_view.clicked.connect(self._on_item_clicked)
+        self.table_view.doubleClicked.connect(self._on_item_double_clicked)
+        self.table_view.customContextMenuRequested.connect(self._on_context_menu)
 
-    def _on_item_clicked(self, item: QTableWidgetItem):
+    def _on_item_clicked(self, index):
         """
         处理文件点击事件
 
         Args:
-            item: 表格项
+            index: 模型索引
         """
-        row = item.row()
-        file_path = self.table_widget.item(row, 0).data(Qt.UserRole)
-        if file_path:
-            self.signals.file_selected.emit(file_path)
+        source_index = self.proxy_model.mapToSource(index)
+        file_item = self.table_model.get_file(source_index)
+        if file_item:
+            self.signals.file_selected.emit(file_item.path)
 
-    def _on_item_double_clicked(self, item: QTableWidgetItem):
+    def _on_item_double_clicked(self, index):
         """
         处理文件双击事件
 
         Args:
-            item: 表格项
+            index: 模型索引
         """
-        row = item.row()
-        file_path = self.table_widget.item(row, 0).data(Qt.UserRole)
-        if file_path:
-            self.signals.file_double_clicked.emit(file_path)
+        source_index = self.proxy_model.mapToSource(index)
+        file_item = self.table_model.get_file(source_index)
+        if file_item:
+            self.signals.file_double_clicked.emit(file_item.path)
 
     def _on_context_menu(self, position: QPoint):
         """
@@ -87,13 +94,13 @@ class FileManagerWidget(QWidget):
         Args:
             position: 位置
         """
-        item = self.table_widget.itemAt(position)
-        if item:
-            row = item.row()
-            file_path = self.table_widget.item(row, 0).data(Qt.UserRole)
-            if file_path:
-                global_position = self.table_widget.mapToGlobal(position)
-                self.signals.context_menu_requested.emit(file_path, global_position)
+        index = self.table_view.indexAt(position)
+        if index.isValid():
+            source_index = self.proxy_model.mapToSource(index)
+            file_item = self.table_model.get_file(source_index)
+            if file_item:
+                global_position = self.table_view.mapToGlobal(position)
+                self.signals.context_menu_requested.emit(file_item.path, global_position)
 
     def load_files(self, files):
         """
@@ -102,25 +109,7 @@ class FileManagerWidget(QWidget):
         Args:
             files: 文件列表
         """
-        self.table_widget.setRowCount(0)
-
-        for file_info in files:
-            row = self.table_widget.rowCount()
-            self.table_widget.insertRow(row)
-
-            name_item = QTableWidgetItem(file_info.name)
-            name_item.setData(Qt.UserRole, file_info.path)
-            self.table_widget.setItem(row, 0, name_item)
-
-            size_item = QTableWidgetItem(file_info.get_size_str())
-            size_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            self.table_widget.setItem(row, 1, size_item)
-
-            time_item = QTableWidgetItem(file_info.get_modified_time_str())
-            self.table_widget.setItem(row, 2, time_item)
-
-            type_item = QTableWidgetItem(file_info.file_type)
-            self.table_widget.setItem(row, 3, type_item)
+        self.table_model.refresh(files)
 
     def select_file(self, file_path: str):
         """
@@ -129,12 +118,50 @@ class FileManagerWidget(QWidget):
         Args:
             file_path: 文件路径
         """
-        for row in range(self.table_widget.rowCount()):
-            item = self.table_widget.item(row, 0)
-            if item and item.data(Qt.UserRole) == file_path:
-                self.table_widget.selectRow(row)
+        for row in range(self.table_model.rowCount()):
+            index = self.table_model.index(row, 0)
+            file_item = self.table_model.get_file(index)
+            if file_item and file_item.path == file_path:
+                proxy_index = self.proxy_model.mapFromSource(index)
+                self.table_view.selectRow(proxy_index.row())
                 break
 
     def refresh_files(self):
         """刷新文件列表"""
         pass
+
+    def set_filter_text(self, text: str):
+        """
+        设置过滤文本
+
+        Args:
+            text: 过滤文本
+        """
+        self.proxy_model.set_filter_text(text)
+
+    def set_show_hidden(self, show: bool):
+        """
+        设置是否显示隐藏文件
+
+        Args:
+            show: 是否显示
+        """
+        self.proxy_model.set_show_hidden(show)
+
+    def set_sort_column(self, column: int):
+        """
+        设置排序列
+
+        Args:
+            column: 列号
+        """
+        self.table_view.sortByColumn(column, self.proxy_model.sortOrder())
+
+    def set_sort_order(self, order: Qt.SortOrder):
+        """
+        设置排序顺序
+
+        Args:
+            order: 排序顺序
+        """
+        self.table_view.sortByColumn(self.proxy_model.sortColumn(), order)
